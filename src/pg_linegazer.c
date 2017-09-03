@@ -11,6 +11,7 @@
 #include "utils/syscache.h"
 
 
+#define DEAD_STMT_MARK		(-1)
 #define MAX_RECORDED_CNT	9999
 #define FUNC_TABLE_SIZE		128
 #define FUNC_ROW_COUNT		4
@@ -55,6 +56,11 @@ void init_fte_htab(void);
 void fini_fte_htab(void);
 void *search_fte_htab(Oid procid, HASHACTION action, bool *found);
 MemoryContext get_fte_mcxt(void);
+
+void mark_branch_statements(PLpgSQL_stmt *stmt,
+							FuncTableEntry *fte);
+
+void fte_expand_lines_stat(FuncTableEntry *fte, int lineno);
 
 void linegazer_stmt_begin(PLpgSQL_execstate *estate,
 						  PLpgSQL_stmt *stmt);
@@ -119,16 +125,35 @@ strtok_single(char *str, char const *delims)
 }
 
 
+/* Mark line as "potentially dead" */
+static inline void
+fte_checked_penalty(int *val)
+{
+	/* Reached some statement within a branch */
+	if (*val == 0)
+		*val = DEAD_STMT_MARK; /* mark as potentially dead */
+}
+
+/* Increment hit count of a line of code */
 static inline void
 fte_checked_increment(int *val)
 {
+	/* Reached some statement within a branch */
+	if (*val == DEAD_STMT_MARK)
+		*val = 0; /* revive this statement */
+
 	*val = Min(*val + 1, MAX_RECORDED_CNT);
 }
 
+/* Get hit count for a line of code */
 static inline int
 fte_checked_hit_poll(FuncTableEntry *fce, int line)
 {
-	if (!fce || line > fce->last_line)
+	if (!fce)
+		return DEAD_STMT_MARK;
+
+	/* We don't know anything about this statement */
+	if (line > fce->last_line)
 		return 0;
 
 	return fce->lines_stat[line];
@@ -177,6 +202,7 @@ fini_fte_htab(void)
 		MemoryContextReset(linegazer_func_table_mcxt);
 }
 
+/* Find an entry in function hash table */
 void *
 search_fte_htab(Oid procid, HASHACTION action, bool *found)
 {
@@ -188,6 +214,7 @@ search_fte_htab(Oid procid, HASHACTION action, bool *found)
 					   action, found);
 }
 
+/* Get a suitable memory context for function hash table */
 MemoryContext
 get_fte_mcxt(void)
 {
@@ -197,6 +224,180 @@ get_fte_mcxt(void)
 
 	return linegazer_func_table_mcxt;
 }
+
+
+/* Recursively mark all reachable stmts as "potentially dead" */
+void
+mark_branch_statements(PLpgSQL_stmt *stmt,
+					   FuncTableEntry *fte)
+{
+	ListCell   *lc1,
+			   *lc2;
+
+	switch (stmt->cmd_type)
+	{
+		case PLPGSQL_STMT_BLOCK:
+			{
+				PLpgSQL_stmt_block *block = (PLpgSQL_stmt_block *) stmt;
+
+				foreach (lc1, block->body)
+					mark_branch_statements(lfirst(lc1), fte);
+
+				/* Handle exceptions as well */
+				if (block->exceptions)
+				{
+					foreach (lc1, block->exceptions->exc_list)
+					{
+						PLpgSQL_exception *exception = lfirst(lc1);
+
+						foreach (lc2, exception->action)
+							mark_branch_statements(lfirst(lc2), fte);
+					}
+				}
+			}
+			return; /* do not mark blocks (etc BEGIN) */
+
+		/* IF cond THEN cmd ELSE IF cond THEN cmd ELSE cmd END IF */
+		case PLPGSQL_STMT_IF:
+			{
+				PLpgSQL_stmt_if *if_stmt = (PLpgSQL_stmt_if *) stmt;
+
+				foreach (lc1, if_stmt->then_body)
+					mark_branch_statements(lfirst(lc1), fte);
+
+				foreach (lc1, if_stmt->elsif_list)
+				{
+					PLpgSQL_if_elsif *elsif = lfirst(lc1);
+
+					foreach (lc2, elsif->stmts)
+						mark_branch_statements(lfirst(lc2), fte);
+				}
+
+				foreach (lc1, if_stmt->else_body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* CASE expr WHEN expr THEN cmd ELSE cmd END CASE */
+		case PLPGSQL_STMT_CASE:
+			{
+				PLpgSQL_stmt_case *case_stmt = (PLpgSQL_stmt_case *) stmt;
+
+				foreach (lc1, case_stmt->case_when_list)
+				{
+					PLpgSQL_case_when *casewhen = lfirst(lc1);
+
+					foreach (lc2, casewhen->stmts)
+						mark_branch_statements(lfirst(lc1), fte);
+				}
+
+				foreach (lc1, case_stmt->else_stmts)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* LOOP cmd END LOOP */
+		case PLPGSQL_STMT_LOOP:
+			{
+				PLpgSQL_stmt_loop *loop = (PLpgSQL_stmt_loop *) stmt;
+
+				foreach (lc1, loop->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* WHILE cond LOOP stmt END LOOP */
+		case PLPGSQL_STMT_WHILE:
+			{
+				PLpgSQL_stmt_while *while_stmt = (PLpgSQL_stmt_while *) stmt;
+
+				foreach (lc1, while_stmt->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* FOR i IN expr .. expr BY expr LOOP cmd END LOOP */
+		case PLPGSQL_STMT_FORI:
+			{
+				PLpgSQL_stmt_fori *fori_stmt = (PLpgSQL_stmt_fori *) stmt;
+
+				foreach (lc1, fori_stmt->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* FOR i IN (SELECT ...) LOOP cmd END LOOP */
+		case PLPGSQL_STMT_FORS:
+			{
+				PLpgSQL_stmt_fors *fors_stmt = (PLpgSQL_stmt_fors *) stmt;
+
+				foreach (lc1, fors_stmt->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* FOR i IN query LOOP cmd END LOOP */
+		case PLPGSQL_STMT_FORC:
+			{
+				PLpgSQL_stmt_forc *forc_stmt = (PLpgSQL_stmt_forc *) stmt;
+
+				foreach (lc1, forc_stmt->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* FOR i IN ARRAY LOOP cmd END LOOP */
+		case PLPGSQL_STMT_FOREACH_A:
+			{
+				PLpgSQL_stmt_foreach_a *foreach_stmt = (PLpgSQL_stmt_foreach_a *) stmt;
+
+				foreach (lc1, foreach_stmt->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+			break;
+
+		/* FOR i IN EXECUTE LOOP cmd END LOOP */
+		case PLPGSQL_STMT_DYNFORS:
+			{
+				PLpgSQL_stmt_dynfors *dynfors = (PLpgSQL_stmt_dynfors *) stmt;
+
+				foreach (lc1, dynfors->body)
+					mark_branch_statements(lfirst(lc1), fte);
+			}
+
+		default:
+			break;
+	}
+
+	/* Expand fte->lines_stat if necessary */
+	fte_expand_lines_stat(fte, stmt->lineno);
+
+	/* Mark this statement as "probably unreachable" */
+	fte_checked_penalty(&fte->lines_stat[stmt->lineno]);
+}
+
+/* Allocate more lines in FuncTableEntry */
+void
+fte_expand_lines_stat(FuncTableEntry *fte, int lineno)
+{
+	/* Update last known statement */
+	fte->last_line = Max(fte->last_line, lineno);
+
+	/* Extend array if needed */
+	if (fte->last_line >= fte->lines_alloced)
+	{
+		int		old_size = fte->lines_alloced,
+				new_size = next_pow2_int(fte->last_line + 1),
+				new_rows = new_size - fte->lines_alloced;
+
+		fte->lines_alloced = new_size;
+		fte->lines_stat = repalloc(fte->lines_stat, sizeof(int) * new_size);
+
+		/* Don't forget to reset new cells! */
+		memset(&fte->lines_stat[old_size], 0, sizeof(int) * new_rows);
+	}
+}
+
 
 void
 linegazer_func_begin(PLpgSQL_execstate *estate,
@@ -222,6 +423,9 @@ linegazer_func_begin(PLpgSQL_execstate *estate,
 		}
 
 		estate->plugin_info = (void *) fte;
+
+		/* Find "potentially dead" statements */
+		mark_branch_statements((PLpgSQL_stmt *) func->action, fte);
 	}
 }
 
@@ -235,29 +439,15 @@ linegazer_stmt_begin(PLpgSQL_execstate *estate,
 	elog(DEBUG1, "linegazer: %s, line %d", fte->func_name, stmt->lineno);
 #endif
 
-	/* Update last known statement */
-	fte->last_line = Max(fte->last_line, stmt->lineno);
-
-	/* Extend array if needed */
-	if (fte->last_line >= fte->lines_alloced)
-	{
-		int		old_size = fte->lines_alloced,
-				new_size = next_pow2_int(fte->last_line + 1),
-				new_rows = new_size - fte->lines_alloced;
-
-		fte->lines_alloced = new_size;
-		fte->lines_stat = repalloc(fte->lines_stat, sizeof(int) * new_size);
-
-		/* Don't forget to reset new cells! */
-		memset(&fte->lines_stat[old_size], 0, sizeof(int) * new_rows);
-	}
+	/* Expand fte->lines_stat if necessary */
+	fte_expand_lines_stat(fte, stmt->lineno);
 
 	/* Increment row hits count */
 	fte_checked_increment(&fte->lines_stat[stmt->lineno]);
 }
 
 
-
+/* Clear function hash table */
 Datum
 linegazer_clear_pl(PG_FUNCTION_ARGS)
 {
@@ -266,6 +456,7 @@ linegazer_clear_pl(PG_FUNCTION_ARGS)
 	PG_RETURN_NULL();
 }
 
+/* Build a simple report for a certain function */
 Datum
 linegazer_simple_report_pl(PG_FUNCTION_ARGS)
 {
@@ -353,12 +544,20 @@ linegazer_simple_report_pl(PG_FUNCTION_ARGS)
 	if (usercxt->lc)
 	{
 		List	   *pair = (List *) lfirst(usercxt->lc);
+		int			hits = intVal(linitial(pair));
 		Datum		values[3];
 		bool		isnull[3] = {0};
 		HeapTuple	htup;
 
+		/* Special rule for dead code */
+		if (hits == DEAD_STMT_MARK)
+			hits = 0;
+		/* Special rule for rubbish lines */
+		else if (hits == 0)
+			isnull[1] = true;
+
 		values[0] = Int32GetDatum(usercxt->line++);
-		values[1] = Int32GetDatum(intVal(linitial(pair)));
+		values[1] = Int32GetDatum(hits);
 		values[2] = CStringGetTextDatum(strVal(lsecond(pair)));
 
 		htup = heap_form_tuple(funccxt->tuple_desc, values, isnull);

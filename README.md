@@ -56,20 +56,20 @@ select test_func();
 select * from linegazer_simple_report('test_func'::regproc);
  line | hits |                  code
 ------+------+-----------------------------------------
-    1 |    0 |
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 |
-    6 |    0 | begin
+    1 |      |
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      |
+    6 |      | begin
     7 |    2 |         for i in 1..100 loop
     8 |  200 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 |
+    9 |      |         end loop;
+   10 |      |
    11 |    2 |         if i < 10 then
    12 |    0 |                 raise exception 'wtf!';
-   13 |    0 |         end if;
-   14 |    0 | end;
+   13 |      |         end if;
+   14 |      | end;
 (14 rows)
 ```
 

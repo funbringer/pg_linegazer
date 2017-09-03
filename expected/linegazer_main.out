@@ -100,7 +100,7 @@ select test_1();
 select * from linegazer_simple_report('test_1'::regproc);
  line | hits |                          code                           
 ------+------+---------------------------------------------------------
-    1 |    0 | 
+    1 |      | 
     2 |    3 | declare a int4; begin a = 1; a = a + 2; a = a + 3; end;
 (2 rows)
 
@@ -113,7 +113,7 @@ select test_1();
 select * from linegazer_simple_report('test_1'::regproc);
  line | hits |                          code                           
 ------+------+---------------------------------------------------------
-    1 |    0 | 
+    1 |      | 
     2 |    6 | declare a int4; begin a = 1; a = a + 2; a = a + 3; end;
 (2 rows)
 
@@ -140,17 +140,17 @@ select test_2();
 select * from linegazer_simple_report('test_2'::regproc);
  line | hits |      code       
 ------+------+-----------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      | 
+    5 |      | begin
     6 |    1 |         a = 1;
-    7 |    0 | 
+    7 |      | 
     8 |    1 |         a = 2;
-    9 |    0 | 
+    9 |      | 
    10 |    1 |         a = 3;
-   11 |    0 | end;
+   11 |      | end;
 (11 rows)
 
 select test_2();
@@ -162,17 +162,17 @@ select test_2();
 select * from linegazer_simple_report('test_2'::regproc);
  line | hits |      code       
 ------+------+-----------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      | 
+    5 |      | begin
     6 |    2 |         a = 1;
-    7 |    0 | 
+    7 |      | 
     8 |    2 |         a = 2;
-    9 |    0 | 
+    9 |      | 
    10 |    2 |         a = 3;
-   11 |    0 | end;
+   11 |      | end;
 (11 rows)
 
 select linegazer_clear();
@@ -207,16 +207,16 @@ select test_3();
 select * from linegazer_simple_report('test_3'::regproc);
  line | hits |             code             
 ------+------+------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    1 |         for i in 1..100 loop
     8 |  100 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | end;
+    9 |      |         end loop;
+   10 |      | end;
 (10 rows)
 
 select test_3();
@@ -228,16 +228,16 @@ select test_3();
 select * from linegazer_simple_report('test_3'::regproc);
  line | hits |             code             
 ------+------+------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    2 |         for i in 1..100 loop
     8 |  200 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | end;
+    9 |      |         end loop;
+   10 |      | end;
 (10 rows)
 
 select linegazer_clear();
@@ -271,20 +271,20 @@ select test_4();
 select * from linegazer_simple_report('test_4'::regproc);
  line | hits |                  code                   
 ------+------+-----------------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    1 |         for i in 1..100 loop
     8 |  100 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | 
+    9 |      |         end loop;
+   10 |      | 
    11 |    1 |         if i < 10 then
    12 |    0 |                 raise exception 'wtf!';
-   13 |    0 |         end if;
-   14 |    0 | end;
+   13 |      |         end if;
+   14 |      | end;
 (14 rows)
 
 select test_4();
@@ -296,20 +296,20 @@ select test_4();
 select * from linegazer_simple_report('test_4'::regproc);
  line | hits |                  code                   
 ------+------+-----------------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    2 |         for i in 1..100 loop
     8 |  200 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | 
+    9 |      |         end loop;
+   10 |      | 
    11 |    2 |         if i < 10 then
    12 |    0 |                 raise exception 'wtf!';
-   13 |    0 |         end if;
-   14 |    0 | end;
+   13 |      |         end if;
+   14 |      | end;
 (14 rows)
 
 select linegazer_clear();
@@ -347,50 +347,50 @@ select test_5();
 select * from linegazer_simple_report('test_5'::regproc);
  line | hits |                   code                    
 ------+------+-------------------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         i int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         i int4;
+    4 |      | 
+    5 |      | begin
     6 |    1 |         for i in 1..4 loop
     7 |    4 |                 perform test_2();
-    8 |    0 | 
+    8 |      | 
     9 |    4 |                 if i % 2 = 0 then
    10 |    2 |                         perform test_3();
-   11 |    0 |                 end if;
-   12 |    0 |         end loop;
-   13 |    0 | end;
+   11 |      |                 end if;
+   12 |      |         end loop;
+   13 |      | end;
 (13 rows)
 
 select * from linegazer_simple_report('test_2'::regproc);
  line | hits |      code       
 ------+------+-----------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      | 
+    5 |      | begin
     6 |    4 |         a = 1;
-    7 |    0 | 
+    7 |      | 
     8 |    4 |         a = 2;
-    9 |    0 | 
+    9 |      | 
    10 |    4 |         a = 3;
-   11 |    0 | end;
+   11 |      | end;
 (11 rows)
 
 select * from linegazer_simple_report('test_3'::regproc);
  line | hits |             code             
 ------+------+------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    2 |         for i in 1..100 loop
     8 |  200 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | end;
+    9 |      |         end loop;
+   10 |      | end;
 (10 rows)
 
 select test_5();
@@ -402,50 +402,50 @@ select test_5();
 select * from linegazer_simple_report('test_5'::regproc);
  line | hits |                   code                    
 ------+------+-------------------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         i int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         i int4;
+    4 |      | 
+    5 |      | begin
     6 |    2 |         for i in 1..4 loop
     7 |    8 |                 perform test_2();
-    8 |    0 | 
+    8 |      | 
     9 |    8 |                 if i % 2 = 0 then
    10 |    4 |                         perform test_3();
-   11 |    0 |                 end if;
-   12 |    0 |         end loop;
-   13 |    0 | end;
+   11 |      |                 end if;
+   12 |      |         end loop;
+   13 |      | end;
 (13 rows)
 
 select * from linegazer_simple_report('test_2'::regproc);
  line | hits |      code       
 ------+------+-----------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      | 
+    5 |      | begin
     6 |    8 |         a = 1;
-    7 |    0 | 
+    7 |      | 
     8 |    8 |         a = 2;
-    9 |    0 | 
+    9 |      | 
    10 |    8 |         a = 3;
-   11 |    0 | end;
+   11 |      | end;
 (11 rows)
 
 select * from linegazer_simple_report('test_3'::regproc);
  line | hits |             code             
 ------+------+------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    4 |         for i in 1..100 loop
     8 |  400 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | end;
+    9 |      |         end loop;
+   10 |      | end;
 (10 rows)
 
 select linegazer_clear();
@@ -532,7 +532,7 @@ select test_1();
 select * from linegazer_simple_report('test_1'::regproc);
  line | hits |                          code                           
 ------+------+---------------------------------------------------------
-    1 |    0 | 
+    1 |      | 
     2 |    3 | declare a int4; begin a = 1; a = a + 2; a = a + 3; end;
 (2 rows)
 
@@ -545,24 +545,24 @@ select test_2();
 select * from linegazer_simple_report('test_1'::regproc);
  line | hits |                          code                           
 ------+------+---------------------------------------------------------
-    1 |    0 | 
+    1 |      | 
     2 |    3 | declare a int4; begin a = 1; a = a + 2; a = a + 3; end;
 (2 rows)
 
 select * from linegazer_simple_report('test_2'::regproc);
  line | hits |      code       
 ------+------+-----------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      | 
+    5 |      | begin
     6 |    1 |         a = 1;
-    7 |    0 | 
+    7 |      | 
     8 |    1 |         a = 2;
-    9 |    0 | 
+    9 |      | 
    10 |    1 |         a = 3;
-   11 |    0 | end;
+   11 |      | end;
 (11 rows)
 
 select test_3();
@@ -574,39 +574,39 @@ select test_3();
 select * from linegazer_simple_report('test_1'::regproc);
  line | hits |                          code                           
 ------+------+---------------------------------------------------------
-    1 |    0 | 
+    1 |      | 
     2 |    3 | declare a int4; begin a = 1; a = a + 2; a = a + 3; end;
 (2 rows)
 
 select * from linegazer_simple_report('test_2'::regproc);
  line | hits |      code       
 ------+------+-----------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4;
-    4 |    0 | 
-    5 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      | 
+    5 |      | begin
     6 |    1 |         a = 1;
-    7 |    0 | 
+    7 |      | 
     8 |    1 |         a = 2;
-    9 |    0 | 
+    9 |      | 
    10 |    1 |         a = 3;
-   11 |    0 | end;
+   11 |      | end;
 (11 rows)
 
 select * from linegazer_simple_report('test_3'::regproc);
  line | hits |             code             
 ------+------+------------------------------
-    1 |    0 | 
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 | 
-    6 |    0 | begin
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
     7 |    1 |         for i in 1..100 loop
     8 |  100 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 | end;
+    9 |      |         end loop;
+   10 |      | end;
 (10 rows)
 
 select linegazer_clear();
