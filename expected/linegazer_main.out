@@ -1322,4 +1322,35 @@ select linegazer_clear();
  
 (1 row)
 
+/* Test coverage estimation */
+select test_1();
+ test_1 
+--------
+ 
+(1 row)
+
+select linegazer_simple_coverage('test_1'::regproc);
+ linegazer_simple_coverage 
+---------------------------
+                         1
+(1 row)
+
+select test_4();
+ test_4 
+--------
+ 
+(1 row)
+
+select linegazer_simple_coverage('test_4'::regproc);
+ linegazer_simple_coverage 
+---------------------------
+                      0.75
+(1 row)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
 DROP EXTENSION pg_linegazer;
