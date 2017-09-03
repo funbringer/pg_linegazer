@@ -6,6 +6,7 @@ This project aims to provide a code coverage toolkit for PL/pgSQL, a procedural 
 ## Features
 
 * No need for code instrumentation;
+* Nested calls are taken into account;
 * Well, that's it for now :|
 
 ## Setup
