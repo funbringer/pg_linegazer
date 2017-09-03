@@ -24,7 +24,7 @@ make USE_PGXS=1 PG_CONFIG=/path/to/pg_config install
 
 ## Usage
 
-Just execute your functions a few times, then request a report:
+Just execute your function a few times, then request a report:
 
 ```plpgsql
 /* Step #1: define a function */
@@ -51,22 +51,53 @@ select test_func();
 select test_func();
 
 /* Step #3: examine the report */
-elect * from linegazer_simple_report('test_func'::regproc);
- line | hits |          code
-------+------+-------------------------
+select * from linegazer_simple_report('test_func'::regproc);
+ line | hits |                  code
+------+------+-----------------------------------------
     1 |    0 |
     2 |    0 | declare
-    3 |    0 | a int4 := 0;
-    4 |    0 | i int4;
+    3 |    0 |         a int4 := 0;
+    4 |    0 |         i int4;
     5 |    0 |
     6 |    0 | begin
-    7 |    2 | for i in 1..100 loop
-    8 |  200 | a = a + i;
-    9 |    0 | end loop;
+    7 |    2 |         for i in 1..100 loop
+    8 |  200 |                 a = a + i;
+    9 |    0 |         end loop;
    10 |    0 |
-   11 |    2 | if i < 10 then
-   12 |    0 | raise exception 'wtf!';
-   13 |    0 | end if;
+   11 |    2 |         if i < 10 then
+   12 |    0 |                 raise exception 'wtf!';
+   13 |    0 |         end if;
+   14 |    0 | end;
+(14 rows)
+```
+
+To reset coverage stats, execute the following function:
+
+```plpgsql
+/* Clear cache */
+select linegazer_clear();
+ linegazer_clear
+-----------------
+
+(1 row)
+
+/* All stats is lost! */
+select * from linegazer_simple_report('test_func'::regproc);
+ line | hits |                  code
+------+------+-----------------------------------------
+    1 |    0 |
+    2 |    0 | declare
+    3 |    0 |         a int4 := 0;
+    4 |    0 |         i int4;
+    5 |    0 |
+    6 |    0 | begin
+    7 |    0 |         for i in 1..100 loop
+    8 |    0 |                 a = a + i;
+    9 |    0 |         end loop;
+   10 |    0 |
+   11 |    0 |         if i < 10 then
+   12 |    0 |                 raise exception 'wtf!';
+   13 |    0 |         end if;
    14 |    0 | end;
 (14 rows)
 ```
