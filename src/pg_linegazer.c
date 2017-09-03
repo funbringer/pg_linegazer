@@ -435,6 +435,9 @@ linegazer_stmt_begin(PLpgSQL_execstate *estate,
 {
 	FuncTableEntry *fte = (FuncTableEntry *) estate->plugin_info;
 
+	if (!fte)
+		return;
+
 #ifdef USE_ASSERT_CHECKING
 	elog(DEBUG1, "linegazer: %s, line %d", fte->func_name, stmt->lineno);
 #endif
