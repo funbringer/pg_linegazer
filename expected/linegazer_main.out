@@ -90,6 +90,139 @@ begin
 	end loop;
 end;
 $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_6()
+RETURNS VOID AS
+$$
+declare
+	a int4;
+	i int4;
+
+begin
+	for i in (select generate_series(1, 4)) loop
+		a = a + i;
+
+		if a > 100 then
+			raise exception 'wtf!';
+		end if;
+	end loop;
+end;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_7()
+RETURNS VOID AS
+$$
+declare
+	a int4;
+	i int4;
+
+begin
+	foreach i in array '{1,2,3,4}'::int4[] loop
+		a = a + i;
+
+		if a > 100 then
+			raise exception 'wtf!';
+		end if;
+	end loop;
+end;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_8()
+RETURNS VOID AS
+$$
+declare
+	a int4;
+	i int4;
+
+begin
+	for i in select * from generate_series(1, 2) loop
+		a = a + i;
+
+		if a > 100 then
+			raise exception 'wtf!';
+		end if;
+	end loop;
+end;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_9()
+RETURNS VOID AS
+$$
+declare
+	a int4 := 0;
+
+begin
+	loop
+		if a > 10 then
+			exit;
+		end if;
+
+		if a > 100 then
+			raise exception 'wtf!';
+		end if;
+
+		a = a + 1;
+	end loop;
+end;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_10()
+RETURNS VOID AS
+$$
+declare
+	a int4 := 0;
+
+begin
+	while a < 10 loop
+
+		if a > 100 then
+			raise exception 'wtf!';
+		elseif a > 1000 then
+			raise exception 'wtf!';
+		else
+			a = a;
+		end if;
+
+		a = a + 1;
+	end loop;
+end;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_11()
+RETURNS VOID AS
+$$
+declare
+	a int4 := 0;
+
+begin
+	a = 100;
+
+	if a = 200 then
+		raise exception 'wtf!';
+	end if;
+
+exception
+	when division_by_zero then
+		raise exception 'wtf!';
+end;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION test_12()
+RETURNS VOID AS
+$$
+declare
+	a int4;
+	i int4;
+
+begin
+	for i in 1..10 loop
+		case i
+			when 1, 2, 3 then
+				a = 1;
+			when 4 then
+				a = 2;
+			when 100 then
+				raise exception 'wtf!';
+			else
+				a = 3;
+		end case;
+	end loop;
+
+end;
+$$ LANGUAGE plpgsql;
 /* Test function #1 */
 select test_1();
  test_1 
@@ -502,6 +635,580 @@ select * from linegazer_simple_report('test_3'::regproc);
     9 |    0 |         end loop;
    10 |    0 | end;
 (10 rows)
+
+/* Test function #6 */
+select test_6();
+ test_6 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_6'::regproc);
+ line | hits |                         code                         
+------+------+------------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    1 |         for i in (select generate_series(1, 4)) loop
+    8 |    4 |                 a = a + i;
+    9 |      | 
+   10 |    4 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 end if;
+   13 |      |         end loop;
+   14 |      | end;
+(14 rows)
+
+select test_6();
+ test_6 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_6'::regproc);
+ line | hits |                         code                         
+------+------+------------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    2 |         for i in (select generate_series(1, 4)) loop
+    8 |    8 |                 a = a + i;
+    9 |      | 
+   10 |    8 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 end if;
+   13 |      |         end loop;
+   14 |      | end;
+(14 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_6'::regproc);
+ line | hits |                         code                         
+------+------+------------------------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4;
+    4 |    0 |         i int4;
+    5 |    0 | 
+    6 |    0 | begin
+    7 |    0 |         for i in (select generate_series(1, 4)) loop
+    8 |    0 |                 a = a + i;
+    9 |    0 | 
+   10 |    0 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |    0 |                 end if;
+   13 |    0 |         end loop;
+   14 |    0 | end;
+(14 rows)
+
+/* Test function #7 */
+select test_7();
+ test_7 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_7'::regproc);
+ line | hits |                        code                         
+------+------+-----------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    1 |         foreach i in array '{1,2,3,4}'::int4[] loop
+    8 |    4 |                 a = a + i;
+    9 |      | 
+   10 |    4 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 end if;
+   13 |      |         end loop;
+   14 |      | end;
+(14 rows)
+
+select test_7();
+ test_7 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_7'::regproc);
+ line | hits |                        code                         
+------+------+-----------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    2 |         foreach i in array '{1,2,3,4}'::int4[] loop
+    8 |    8 |                 a = a + i;
+    9 |      | 
+   10 |    8 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 end if;
+   13 |      |         end loop;
+   14 |      | end;
+(14 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_7'::regproc);
+ line | hits |                        code                         
+------+------+-----------------------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4;
+    4 |    0 |         i int4;
+    5 |    0 | 
+    6 |    0 | begin
+    7 |    0 |         foreach i in array '{1,2,3,4}'::int4[] loop
+    8 |    0 |                 a = a + i;
+    9 |    0 | 
+   10 |    0 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |    0 |                 end if;
+   13 |    0 |         end loop;
+   14 |    0 | end;
+(14 rows)
+
+/* Test function #8 */
+select test_8();
+ test_8 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_8'::regproc);
+ line | hits |                           code                            
+------+------+-----------------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    1 |         for i in select * from generate_series(1, 2) loop
+    8 |    2 |                 a = a + i;
+    9 |      | 
+   10 |    2 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 end if;
+   13 |      |         end loop;
+   14 |      | end;
+(14 rows)
+
+select test_8();
+ test_8 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_8'::regproc);
+ line | hits |                           code                            
+------+------+-----------------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    2 |         for i in select * from generate_series(1, 2) loop
+    8 |    4 |                 a = a + i;
+    9 |      | 
+   10 |    4 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 end if;
+   13 |      |         end loop;
+   14 |      | end;
+(14 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_8'::regproc);
+ line | hits |                           code                            
+------+------+-----------------------------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4;
+    4 |    0 |         i int4;
+    5 |    0 | 
+    6 |    0 | begin
+    7 |    0 |         for i in select * from generate_series(1, 2) loop
+    8 |    0 |                 a = a + i;
+    9 |    0 | 
+   10 |    0 |                 if a > 100 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |    0 |                 end if;
+   13 |    0 |         end loop;
+   14 |    0 | end;
+(14 rows)
+
+/* Test function #9 */
+select test_9();
+ test_9 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_9'::regproc);
+ line | hits |                      code                       
+------+------+-------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      | 
+    5 |      | begin
+    6 |    1 |         loop
+    7 |   12 |                 if a > 10 then
+    8 |    1 |                         exit;
+    9 |      |                 end if;
+   10 |      | 
+   11 |   11 |                 if a > 100 then
+   12 |    0 |                         raise exception 'wtf!';
+   13 |      |                 end if;
+   14 |      | 
+   15 |   11 |                 a = a + 1;
+   16 |      |         end loop;
+   17 |      | end;
+(17 rows)
+
+select test_9();
+ test_9 
+--------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_9'::regproc);
+ line | hits |                      code                       
+------+------+-------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      | 
+    5 |      | begin
+    6 |    2 |         loop
+    7 |   24 |                 if a > 10 then
+    8 |    2 |                         exit;
+    9 |      |                 end if;
+   10 |      | 
+   11 |   22 |                 if a > 100 then
+   12 |    0 |                         raise exception 'wtf!';
+   13 |      |                 end if;
+   14 |      | 
+   15 |   22 |                 a = a + 1;
+   16 |      |         end loop;
+   17 |      | end;
+(17 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_9'::regproc);
+ line | hits |                      code                       
+------+------+-------------------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4 := 0;
+    4 |    0 | 
+    5 |    0 | begin
+    6 |    0 |         loop
+    7 |    0 |                 if a > 10 then
+    8 |    0 |                         exit;
+    9 |    0 |                 end if;
+   10 |    0 | 
+   11 |    0 |                 if a > 100 then
+   12 |    0 |                         raise exception 'wtf!';
+   13 |    0 |                 end if;
+   14 |    0 | 
+   15 |    0 |                 a = a + 1;
+   16 |    0 |         end loop;
+   17 |    0 | end;
+(17 rows)
+
+/* Test function #10 */
+select test_10();
+ test_10 
+---------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_10'::regproc);
+ line | hits |                      code                       
+------+------+-------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      | 
+    5 |      | begin
+    6 |    1 |         while a < 10 loop
+    7 |      | 
+    8 |   10 |                 if a > 100 then
+    9 |    0 |                         raise exception 'wtf!';
+   10 |      |                 elseif a > 1000 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 else
+   13 |   10 |                         a = a;
+   14 |      |                 end if;
+   15 |      | 
+   16 |   10 |                 a = a + 1;
+   17 |      |         end loop;
+   18 |      | end;
+(18 rows)
+
+select test_10();
+ test_10 
+---------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_10'::regproc);
+ line | hits |                      code                       
+------+------+-------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      | 
+    5 |      | begin
+    6 |    2 |         while a < 10 loop
+    7 |      | 
+    8 |   20 |                 if a > 100 then
+    9 |    0 |                         raise exception 'wtf!';
+   10 |      |                 elseif a > 1000 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |      |                 else
+   13 |   20 |                         a = a;
+   14 |      |                 end if;
+   15 |      | 
+   16 |   20 |                 a = a + 1;
+   17 |      |         end loop;
+   18 |      | end;
+(18 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_10'::regproc);
+ line | hits |                      code                       
+------+------+-------------------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4 := 0;
+    4 |    0 | 
+    5 |    0 | begin
+    6 |    0 |         while a < 10 loop
+    7 |    0 | 
+    8 |    0 |                 if a > 100 then
+    9 |    0 |                         raise exception 'wtf!';
+   10 |    0 |                 elseif a > 1000 then
+   11 |    0 |                         raise exception 'wtf!';
+   12 |    0 |                 else
+   13 |    0 |                         a = a;
+   14 |    0 |                 end if;
+   15 |    0 | 
+   16 |    0 |                 a = a + 1;
+   17 |    0 |         end loop;
+   18 |    0 | end;
+(18 rows)
+
+/* Test function #11 */
+select test_11();
+ test_11 
+---------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_11'::regproc);
+ line | hits |                  code                   
+------+------+-----------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      | 
+    5 |    1 | begin
+    6 |    1 |         a = 100;
+    7 |      | 
+    8 |    1 |         if a = 200 then
+    9 |    0 |                 raise exception 'wtf!';
+   10 |      |         end if;
+   11 |      | 
+   12 |      | exception
+   13 |      |         when division_by_zero then
+   14 |    0 |                 raise exception 'wtf!';
+   15 |      | end;
+(15 rows)
+
+select test_11();
+ test_11 
+---------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_11'::regproc);
+ line | hits |                  code                   
+------+------+-----------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4 := 0;
+    4 |      | 
+    5 |    2 | begin
+    6 |    2 |         a = 100;
+    7 |      | 
+    8 |    2 |         if a = 200 then
+    9 |    0 |                 raise exception 'wtf!';
+   10 |      |         end if;
+   11 |      | 
+   12 |      | exception
+   13 |      |         when division_by_zero then
+   14 |    0 |                 raise exception 'wtf!';
+   15 |      | end;
+(15 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_11'::regproc);
+ line | hits |                  code                   
+------+------+-----------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4 := 0;
+    4 |    0 | 
+    5 |    0 | begin
+    6 |    0 |         a = 100;
+    7 |    0 | 
+    8 |    0 |         if a = 200 then
+    9 |    0 |                 raise exception 'wtf!';
+   10 |    0 |         end if;
+   11 |    0 | 
+   12 |    0 | exception
+   13 |    0 |         when division_by_zero then
+   14 |    0 |                 raise exception 'wtf!';
+   15 |    0 | end;
+(15 rows)
+
+/* Test function #12 */
+select test_12();
+ test_12 
+---------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_12'::regproc);
+ line | hits |                          code                           
+------+------+---------------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    1 |         for i in 1..10 loop
+    8 |   10 |                 case i
+    9 |      |                         when 1, 2, 3 then
+   10 |    3 |                                 a = 1;
+   11 |      |                         when 4 then
+   12 |    1 |                                 a = 2;
+   13 |      |                         when 100 then
+   14 |    0 |                                 raise exception 'wtf!';
+   15 |      |                         else
+   16 |    6 |                                 a = 3;
+   17 |      |                 end case;
+   18 |      |         end loop;
+   19 |      | 
+   20 |      | end;
+(20 rows)
+
+select test_12();
+ test_12 
+---------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_12'::regproc);
+ line | hits |                          code                           
+------+------+---------------------------------------------------------
+    1 |      | 
+    2 |      | declare
+    3 |      |         a int4;
+    4 |      |         i int4;
+    5 |      | 
+    6 |      | begin
+    7 |    2 |         for i in 1..10 loop
+    8 |   20 |                 case i
+    9 |      |                         when 1, 2, 3 then
+   10 |    6 |                                 a = 1;
+   11 |      |                         when 4 then
+   12 |    2 |                                 a = 2;
+   13 |      |                         when 100 then
+   14 |    0 |                                 raise exception 'wtf!';
+   15 |      |                         else
+   16 |   12 |                                 a = 3;
+   17 |      |                 end case;
+   18 |      |         end loop;
+   19 |      | 
+   20 |      | end;
+(20 rows)
+
+select linegazer_clear();
+ linegazer_clear 
+-----------------
+ 
+(1 row)
+
+select * from linegazer_simple_report('test_12'::regproc);
+ line | hits |                          code                           
+------+------+---------------------------------------------------------
+    1 |    0 | 
+    2 |    0 | declare
+    3 |    0 |         a int4;
+    4 |    0 |         i int4;
+    5 |    0 | 
+    6 |    0 | begin
+    7 |    0 |         for i in 1..10 loop
+    8 |    0 |                 case i
+    9 |    0 |                         when 1, 2, 3 then
+   10 |    0 |                                 a = 1;
+   11 |    0 |                         when 4 then
+   12 |    0 |                                 a = 2;
+   13 |    0 |                         when 100 then
+   14 |    0 |                                 raise exception 'wtf!';
+   15 |    0 |                         else
+   16 |    0 |                                 a = 3;
+   17 |    0 |                 end case;
+   18 |    0 |         end loop;
+   19 |    0 | 
+   20 |    0 | end;
+(20 rows)
 
 /* Test native function */
 select generate_series(1::int4, 1::int4);

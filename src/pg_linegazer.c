@@ -288,7 +288,7 @@ mark_branch_statements(PLpgSQL_stmt *stmt,
 					PLpgSQL_case_when *casewhen = lfirst(lc1);
 
 					foreach (lc2, casewhen->stmts)
-						mark_branch_statements(lfirst(lc1), fte);
+						mark_branch_statements(lfirst(lc2), fte);
 				}
 
 				foreach (lc1, case_stmt->else_stmts)
