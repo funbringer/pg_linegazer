@@ -15,6 +15,14 @@
 #define FUNC_TABLE_SIZE		128
 #define FUNC_ROW_COUNT		4
 
+#if PG_VERSION_NUM >= 90500 && PG_VERSION_NUM < 90600
+#define ALLOCSET_DEFAULT_SIZES \
+	ALLOCSET_DEFAULT_MINSIZE, ALLOCSET_DEFAULT_INITSIZE, ALLOCSET_DEFAULT_MAXSIZE
+
+#define ALLOCSET_SMALL_SIZES \
+	ALLOCSET_SMALL_MINSIZE, ALLOCSET_SMALL_INITSIZE, ALLOCSET_SMALL_MAXSIZE
+#endif
+
 
 PG_MODULE_MAGIC;
 
@@ -44,7 +52,9 @@ typedef struct FuncTableEntry
 void _PG_init(void);
 
 void init_fte_htab(void);
+void fini_fte_htab(void);
 void *search_fte_htab(Oid procid, HASHACTION action, bool *found);
+MemoryContext get_fte_mcxt(void);
 
 void linegazer_stmt_begin(PLpgSQL_execstate *estate,
 						  PLpgSQL_stmt *stmt);
@@ -54,6 +64,7 @@ void linegazer_func_begin(PLpgSQL_execstate *estate,
 
 static PLpgSQL_plugin	linegazer_plpgsql_plugin;
 static HTAB			   *linegazer_func_table = NULL;
+static MemoryContext	linegazer_func_table_mcxt = NULL;
 
 
 /* calculate ceil(log base 2) of num */
@@ -146,17 +157,30 @@ init_fte_htab(void)
 {
 	HASHCTL hashctl;
 
+	Assert(linegazer_func_table == NULL);
+
 	memset(&hashctl, 0, sizeof(HASHCTL));
 	hashctl.keysize		= sizeof(Oid);
 	hashctl.entrysize	= sizeof(FuncTableEntry);
-	hashctl.hcxt		= TopMemoryContext;
+	hashctl.hcxt		= get_fte_mcxt();
 
 	linegazer_func_table = hash_create("pg_linegazer function table",
 									   FUNC_TABLE_SIZE, &hashctl,
 									   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 }
 
-void *search_fte_htab(Oid procid, HASHACTION action, bool *found)
+void
+fini_fte_htab(void)
+{
+	hash_destroy(linegazer_func_table);
+	linegazer_func_table = NULL;
+
+	if (linegazer_func_table_mcxt)
+		MemoryContextReset(linegazer_func_table_mcxt);
+}
+
+void *
+search_fte_htab(Oid procid, HASHACTION action, bool *found)
 {
 	if (!linegazer_func_table)
 		init_fte_htab();
@@ -164,6 +188,16 @@ void *search_fte_htab(Oid procid, HASHACTION action, bool *found)
 	return hash_search(linegazer_func_table,
 					   (void *) &procid,
 					   action, found);
+}
+
+MemoryContext
+get_fte_mcxt(void)
+{
+	linegazer_func_table_mcxt = AllocSetContextCreate(TopMemoryContext,
+													  "pg_linegazer memory context",
+													  ALLOCSET_DEFAULT_SIZES);
+
+	return linegazer_func_table_mcxt;
 }
 
 void
@@ -180,7 +214,7 @@ linegazer_func_begin(PLpgSQL_execstate *estate,
 			/* Initialize stats */
 			fte->last_line = 0;
 			fte->lines_alloced = FUNC_ROW_COUNT;
-			fte->lines_stat = MemoryContextAllocZero(TopMemoryContext,
+			fte->lines_stat = MemoryContextAllocZero(get_fte_mcxt(),
 													 sizeof(int) * fte->lines_alloced);
 
 			/* Fetch function's name */
@@ -229,8 +263,7 @@ linegazer_stmt_begin(PLpgSQL_execstate *estate,
 Datum
 linegazer_clear_pl(PG_FUNCTION_ARGS)
 {
-	hash_destroy(linegazer_func_table);
-	linegazer_func_table = NULL;
+	fini_fte_htab();
 
 	PG_RETURN_NULL();
 }
