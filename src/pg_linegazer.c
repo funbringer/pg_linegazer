@@ -42,6 +42,10 @@ typedef struct FuncTableEntry
 
 
 void _PG_init(void);
+
+void init_fte_htab(void);
+void *search_fte_htab(Oid procid, HASHACTION action, bool *found);
+
 void linegazer_stmt_begin(PLpgSQL_execstate *estate,
 						  PLpgSQL_stmt *stmt);
 void linegazer_func_begin(PLpgSQL_execstate *estate,
@@ -137,31 +141,39 @@ _PG_init(void)
 	*plpgsql_plugin_ptr = &linegazer_plpgsql_plugin;
 }
 
+void
+init_fte_htab(void)
+{
+	HASHCTL hashctl;
+
+	memset(&hashctl, 0, sizeof(HASHCTL));
+	hashctl.keysize		= sizeof(Oid);
+	hashctl.entrysize	= sizeof(FuncTableEntry);
+	hashctl.hcxt		= TopMemoryContext;
+
+	linegazer_func_table = hash_create("pg_linegazer function table",
+									   FUNC_TABLE_SIZE, &hashctl,
+									   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
+}
+
+void *search_fte_htab(Oid procid, HASHACTION action, bool *found)
+{
+	if (!linegazer_func_table)
+		init_fte_htab();
+
+	return hash_search(linegazer_func_table,
+					   (void *) &procid,
+					   action, found);
+}
 
 void
 linegazer_func_begin(PLpgSQL_execstate *estate,
 					 PLpgSQL_function *func)
 {
-	if (!linegazer_func_table)
-	{
-		HASHCTL hashctl;
-
-		memset(&hashctl, 0, sizeof(HASHCTL));
-		hashctl.keysize		= sizeof(Oid);
-		hashctl.entrysize	= sizeof(FuncTableEntry);
-		hashctl.hcxt		= TopMemoryContext;
-
-		linegazer_func_table = hash_create("pg_linegazer function table",
-										   FUNC_TABLE_SIZE, &hashctl,
-										   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
-	}
-
 	if (OidIsValid(func->fn_oid) && !estate->plugin_info)
 	{
 		bool			found;
-		FuncTableEntry *fte = hash_search(linegazer_func_table,
-										  (void *) &func->fn_oid,
-										  HASH_ENTER, &found);
+		FuncTableEntry *fte = search_fte_htab(func->fn_oid, HASH_ENTER, &found);
 
 		if (!found)
 		{
@@ -217,7 +229,8 @@ linegazer_stmt_begin(PLpgSQL_execstate *estate,
 Datum
 linegazer_clear_pl(PG_FUNCTION_ARGS)
 {
-	elog(WARNING, "%s not implemented", __FUNCTION__);
+	hash_destroy(linegazer_func_table);
+	linegazer_func_table = NULL;
 
 	PG_RETURN_NULL();
 }
@@ -247,9 +260,7 @@ linegazer_simple_report_pl(PG_FUNCTION_ARGS)
 		old_mcxt = MemoryContextSwitchTo(funccxt->multi_call_memory_ctx);
 
 
-		fte = hash_search(linegazer_func_table,
-						  (void *) &proc_id,
-						  HASH_FIND, NULL);
+		fte = search_fte_htab(proc_id, HASH_FIND, NULL);
 
 
 		htup = SearchSysCache1(PROCOID, ObjectIdGetDatum(proc_id));
