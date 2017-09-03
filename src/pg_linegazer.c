@@ -1,9 +1,14 @@
 ﻿#include "postgres.h"
+#include "access/htup_details.h"
+#include "catalog/pg_proc.h"
+#include "catalog/pg_type.h"
 #include "fmgr.h"
+#include "funcapi.h"
 #include "plpgsql.h"
 #include "utils/builtins.h"
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
+#include "utils/syscache.h"
 
 
 #define MAX_RECORDED_CNT	9999
@@ -18,14 +23,21 @@ PG_FUNCTION_INFO_V1(linegazer_clear_pl);
 PG_FUNCTION_INFO_V1(linegazer_simple_report_pl);
 
 
+typedef struct SimpleReportCxt
+{
+	List	   *stats;	/* hits + code */
+	ListCell   *lc;		/* iterator */
+	int			line;
+} SimpleReportCxt;
+
 typedef struct FuncTableEntry
 {
 	Oid		func_id;
 	char   *func_name;
 
-	int		last_stmt,
-			rows_alloced;
-	int	   *rows;
+	int		last_line,
+			lines_alloced;
+	int	   *lines_stat; /* counter */
 } FuncTableEntry;
 
 
@@ -65,11 +77,48 @@ next_pow2_int(long num)
 	return 1 << my_log2(num);
 }
 
+static char *
+strtok_single(char *str, char const *delims)
+{
+	static char	   *src = NULL;
+	char		   *p,
+				   *ret = 0;
+
+	if (str != NULL)
+		src = str;
+
+	if (src == NULL)
+		return NULL;
+
+	if ((p = strpbrk(src, delims)) != NULL)
+	{
+		*p  = 0;
+		ret = src;
+		src = ++p;
+	}
+	else if (*src)
+	{
+		ret = src;
+		src = NULL;
+	}
+
+	return ret;
+}
+
 
 static inline void
-checked_increment(int *val)
+fte_checked_increment(int *val)
 {
 	*val = Min(*val + 1, MAX_RECORDED_CNT);
+}
+
+static inline int
+fte_checked_hit_poll(FuncTableEntry *fce, int line)
+{
+	if (!fce || line > fce->last_line)
+		return 0;
+
+	return fce->lines_stat[line];
 }
 
 
@@ -117,10 +166,10 @@ linegazer_func_begin(PLpgSQL_execstate *estate,
 		if (!found)
 		{
 			/* Initialize stats */
-			fte->last_stmt = 0;
-			fte->rows_alloced = FUNC_ROW_COUNT;
-			fte->rows = MemoryContextAllocZero(TopMemoryContext,
-											   sizeof(int) * fte->rows_alloced);
+			fte->last_line = 0;
+			fte->lines_alloced = FUNC_ROW_COUNT;
+			fte->lines_stat = MemoryContextAllocZero(TopMemoryContext,
+													 sizeof(int) * fte->lines_alloced);
 
 			/* Fetch function's name */
 			fte->func_name =
@@ -136,38 +185,31 @@ void
 linegazer_stmt_begin(PLpgSQL_execstate *estate,
 					 PLpgSQL_stmt *stmt)
 {
-	FuncTableEntry	   *fte = (FuncTableEntry *) estate->plugin_info;
-	Oid					procid = estate->func->fn_oid;
+	FuncTableEntry *fte = (FuncTableEntry *) estate->plugin_info;
 
 #ifdef USE_ASSERT_CHECKING
 	elog(DEBUG1, "linegazer: %s, line %d", fte->func_name, stmt->lineno);
 #endif
 
 	/* Update last known statement */
-	fte->last_stmt = Max(fte->last_stmt, stmt->lineno);
+	fte->last_line = Max(fte->last_line, stmt->lineno);
 
 	/* Extend array if needed */
-	if (fte->last_stmt >= fte->rows_alloced)
+	if (fte->last_line >= fte->lines_alloced)
 	{
-		int		old_size = fte->rows_alloced,
-				new_size = next_pow2_int(fte->last_stmt + 1),
-				new_rows = new_size - fte->rows_alloced;
+		int		old_size = fte->lines_alloced,
+				new_size = next_pow2_int(fte->last_line + 1),
+				new_rows = new_size - fte->lines_alloced;
 
-		fte->rows_alloced = new_size;
-		fte->rows = repalloc(fte->rows, sizeof(int) * new_size);
+		fte->lines_alloced = new_size;
+		fte->lines_stat = repalloc(fte->lines_stat, sizeof(int) * new_size);
 
 		/* Don't forget to reset new cells! */
-		memset(&fte->rows[old_size], 0, sizeof(int) * new_rows);
-
-#ifdef USE_ASSERT_CHECKING
-	elog(DEBUG1,
-		 "linegazer: function %u, old_size %d, new_size %d",
-		 procid, old_size, new_size);
-#endif
+		memset(&fte->lines_stat[old_size], 0, sizeof(int) * new_rows);
 	}
 
-	/* Increment row usage count */
-	checked_increment(&fte->rows[fte->last_stmt]);
+	/* Increment row hits count */
+	fte_checked_increment(&fte->lines_stat[stmt->lineno]);
 }
 
 
@@ -177,13 +219,113 @@ linegazer_clear_pl(PG_FUNCTION_ARGS)
 {
 	elog(WARNING, "%s not implemented", __FUNCTION__);
 
-	PG_RETURN_VOID();
+	PG_RETURN_NULL();
 }
 
 Datum
 linegazer_simple_report_pl(PG_FUNCTION_ARGS)
 {
-	elog(WARNING, "%s not implemented", __FUNCTION__);
+	FuncCallContext	   *funccxt;
+	SimpleReportCxt	   *usercxt;
+	Oid					proc_id = PG_GETARG_OID(0);
 
-	PG_RETURN_NULL();
+	/* Initialize tuple descriptor & function call context */
+	if (SRF_IS_FIRSTCALL())
+	{
+		TupleDesc		tupdesc;
+		MemoryContext	old_mcxt;
+		FuncTableEntry *fte;
+		HeapTuple		htup;
+		Datum			value;
+		bool			isnull;
+		char		   *proc_src;
+		char		   *ptr;
+		int				i;
+
+		funccxt = SRF_FIRSTCALL_INIT();
+
+		old_mcxt = MemoryContextSwitchTo(funccxt->multi_call_memory_ctx);
+
+
+		fte = hash_search(linegazer_func_table,
+						  (void *) &proc_id,
+						  HASH_FIND, NULL);
+
+
+		htup = SearchSysCache1(PROCOID, ObjectIdGetDatum(proc_id));
+		if (!HeapTupleIsValid(htup))
+			elog(ERROR, "wrong function %u", proc_id);
+
+		value = SysCacheGetAttr(PROCOID, htup, Anum_pg_proc_prosrc, &isnull);
+		if (isnull)
+			elog(ERROR, "wrong function %u", proc_id);
+
+		proc_src = TextDatumGetCString(value);
+
+		ReleaseSysCache(htup);
+
+
+		usercxt = palloc0(sizeof(SimpleReportCxt));
+		ptr = strtok_single(proc_src, "\n");
+
+		i = 1;
+		while (ptr)
+		{
+			int hits = fte_checked_hit_poll(fte, i);
+
+			/* Append (hit count, line of code) */
+			usercxt->stats = lappend(usercxt->stats,
+									 list_make2(makeInteger(hits),
+												makeString(ptr)));
+
+			ptr = strtok_single(NULL, "\n");
+			i++;
+		}
+
+
+		/* Create tuple descriptor */
+		tupdesc = CreateTemplateTupleDesc(3, false);
+
+		TupleDescInitEntry(tupdesc, 1,
+						   "line", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, 2,
+						   "hits", INT4OID, -1, 0);
+		TupleDescInitEntry(tupdesc, 3,
+						   "code", TEXTOID, -1, 0);
+
+		funccxt->tuple_desc = BlessTupleDesc(tupdesc);
+		funccxt->user_fctx = (void *) usercxt;
+
+
+		MemoryContextSwitchTo(old_mcxt);
+
+		usercxt->line = 1;
+		usercxt->lc = list_head(usercxt->stats);
+	}
+
+	/* Restore per-call context */
+	funccxt = SRF_PERCALL_SETUP();
+	usercxt = (SimpleReportCxt *) funccxt->user_fctx;
+
+	/* Are there any lines? */
+	if (usercxt->lc)
+	{
+		List	   *pair = (List *) lfirst(usercxt->lc);
+		Datum		values[3];
+		bool		isnull[3] = {0};
+		HeapTuple	htup;
+
+		values[0] = Int32GetDatum(usercxt->line++);
+		values[1] = Int32GetDatum(intVal(linitial(pair)));
+		values[2] = CStringGetTextDatum(strVal(lsecond(pair)));
+
+		htup = heap_form_tuple(funccxt->tuple_desc, values, isnull);
+
+		/* Switch to next cell before return */
+		usercxt->lc = lnext(usercxt->lc);
+
+		SRF_RETURN_NEXT(funccxt, HeapTupleGetDatum(htup));
+	}
+
+	SRF_RETURN_DONE(funccxt);
 }
