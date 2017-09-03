@@ -103,3 +103,14 @@ select * from linegazer_simple_report('test_func'::regproc);
    14 |    0 | end;
 (14 rows)
 ```
+
+Finally, we can estimate code coverage in function `test_func`:
+
+```plpgsql
+select linegazer_simple_coverage('test_func'::regproc);
+ linegazer_simple_coverage
+---------------------------
+                      0.75
+(1 row)
+```
+
