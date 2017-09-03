@@ -7,6 +7,7 @@ This project aims to provide a code coverage toolkit for PL/pgSQL, a procedural 
 
 * No need for code instrumentation;
 * Nested calls are taken into account;
+* Compatible with PostgreSQL 9.5+;
 * Well, that's it for now :|
 
 ## Setup

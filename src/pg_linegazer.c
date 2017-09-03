@@ -67,7 +67,6 @@ static HTAB			   *linegazer_func_table = NULL;
 static MemoryContext	linegazer_func_table_mcxt = NULL;
 
 
-/* calculate ceil(log base 2) of num */
 static int
 my_log2(long num)
 {
@@ -83,7 +82,6 @@ my_log2(long num)
 	return i;
 }
 
-/* calculate first power of 2 >= num, bounded to what will fit in an int */
 static int
 next_pow2_int(long num)
 {
