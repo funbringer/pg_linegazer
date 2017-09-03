@@ -326,7 +326,7 @@ mark_branch_statements(PLpgSQL_stmt *stmt,
 			}
 			break;
 
-		/* FOR i IN (SELECT ...) LOOP cmd END LOOP */
+		/* FOR i IN SELECT ... LOOP cmd END LOOP */
 		case PLPGSQL_STMT_FORS:
 			{
 				PLpgSQL_stmt_fors *fors_stmt = (PLpgSQL_stmt_fors *) stmt;
