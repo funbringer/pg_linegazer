@@ -2,5 +2,6 @@
 *.so
 results/*
 regression.diffs
+regression.out
 tags
 cscope*
