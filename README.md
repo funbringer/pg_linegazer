@@ -96,34 +96,20 @@ select linegazer_simple_coverage('test_func'::regproc);
 (1 row)
 ```
 
-To reset coverage stats, execute the following function:
+To reset **all** coverage stats, execute the following function:
 
 ```plpgsql
-/* Clear cache */
+/* Clear stats cache */
 select linegazer_clear();
  linegazer_clear
 -----------------
 
 (1 row)
 
-/* All stats is lost! */
-select * from linegazer_simple_report('test_func'::regproc);
- line | hits |                  code
-------+------+-----------------------------------------
-    1 |    0 |
-    2 |    0 | declare
-    3 |    0 |         a int4 := 0;
-    4 |    0 |         i int4;
-    5 |    0 |
-    6 |    0 | begin
-    7 |    0 |         for i in 1..100 loop
-    8 |    0 |                 a = a + i;
-    9 |    0 |         end loop;
-   10 |    0 |
-   11 |    0 |         if i < 10 then
-   12 |    0 |                 raise exception 'wtf!';
-   13 |    0 |         end if;
-   14 |    0 | end;
-(14 rows)
+/* Coverage is 0% */
+select linegazer_simple_coverage('test_func'::regproc);
+ linegazer_simple_coverage
+---------------------------
+                         0
+(1 row)
 ```
-
