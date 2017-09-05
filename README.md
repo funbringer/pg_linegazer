@@ -10,6 +10,11 @@ This project aims to provide a code coverage toolkit for PL/pgSQL, a procedural 
 * Compatible with PostgreSQL 9.5+;
 * Well, that's it for now :|
 
+## Roadmap
+
+* Show branch hits (`if` / `case`);
+* Build reports for `lcov`;
+
 ## Setup
 
 Execute the following command in your favorite shell: 
