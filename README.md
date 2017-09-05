@@ -24,6 +24,14 @@ Don't forget to set `PG_CONFIG` if you'd like to install pg_linegazer into a cus
 make USE_PGXS=1 PG_CONFIG=/path/to/pg_config install
 ```
 
+After that, execute this query:
+
+```plpgsql
+CREATE EXTENSION pg_linegazer;
+```
+
+Done!
+
 ## Usage
 
 Just execute your function a few times, then request a report:
@@ -73,6 +81,16 @@ select * from linegazer_simple_report('test_func'::regproc);
 (14 rows)
 ```
 
+Moreover, we can estimate code coverage in function `test_func`:
+
+```plpgsql
+select linegazer_simple_coverage('test_func'::regproc);
+ linegazer_simple_coverage
+---------------------------
+                      0.75
+(1 row)
+```
+
 To reset coverage stats, execute the following function:
 
 ```plpgsql
@@ -102,15 +120,5 @@ select * from linegazer_simple_report('test_func'::regproc);
    13 |    0 |         end if;
    14 |    0 | end;
 (14 rows)
-```
-
-Finally, we can estimate code coverage in function `test_func`:
-
-```plpgsql
-select linegazer_simple_coverage('test_func'::regproc);
- linegazer_simple_coverage
----------------------------
-                      0.75
-(1 row)
 ```
 
