@@ -12,6 +12,7 @@ This project aims to provide a code coverage toolkit for PL/pgSQL, a procedural 
 
 ## Roadmap
 
+* Persistent storage for stats;
 * Show branch hits (`if` / `case`);
 * Build reports for `lcov`;
 
